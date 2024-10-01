@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapbox Choropleth with Vega-Lite</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.20.0"></script>
+    <style>
+        @font-face {
+            font-family: "Circular Std";
+            src: url("circular-std/CircularStd-Bold.woff") format('woff');
+            font-weight: bold;
+        }
+
+        @font-face {
+            font-family: "Circular Std";
+            src: url("circular-std/CircularStd-Book.woff") format('woff');
+            font-weight: normal;
+        }
+
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        #chart {
+            position: absolute;
+            margin-right: 0px;
+            padding-right: 0px;
+            top: 40px;
+            bottom: 0;
+            right: 0;
+            width: 20%;
+            height: calc(100% - 50px);
+            z-index: 2;
+            background-color: rgba(44, 44, 44, 0);
+        }
+
+        #indicatorDropdown {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 3;
+            background-color: white;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #legend {
+            position: absolute;
+            top: 200px;
+            left: 30px;
+            width: 250px;
+            height: 50px;
+            z-index: 4;
+            /* background: linear-gradient(to right, white, black); */
+            /* Placeholder gradient */
+            padding: 10px;
+            font-family: "Circular Std", sans-serif;
+            color: white;
+            display: none;
+            /* Initially hidden */
+        }
+
+        #legend-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        #legend-gradient {
+            margin-top: 5px;
+            width: 100%;
+            height: 20px;
+            background: linear-gradient(to right, white, black);
+            /* Placeholder gradient */
+        }
+
+        #legend-labels {
+            margin-top: 5px;
+            font-size: 12px;
+        }
+
+        #legend-min {
+            float: left;
+        }
+
+        #legend-max {
+            float: right;
+        }
+
+        #titleBlock {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            padding: 30px;
+            background-color: rgb(52, 52, 52);
+            border: 0.5px solid rgba(255, 255, 255, 1);
+            width: 415px;
+            border-radius: 5px;
+            z-index: 20;
+
+        }
+
+        #titleBlock h1 {
+            font-size: 3rem;
+            font-family: Circular Std;
+            color: whitesmoke;
+            margin: 0;
+            padding: 0;
+        }
+
+        #titleBlock h2 {
+            font-size: 1.5rem;
+            font-family: Circular Std;
+            color: whitesmoke;
+            font-weight: normal;
+            margin: 0;
+            padding: 0;
+        }
+
+        #titleBlock h3 {
+            font-size: 1.2rem;
+            font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+            color: whitesmoke;
+            font-weight: lighter;
+            margin: 0;
+            padding: 0;
+        }
+
+        #titleBlock p {
+            font-size: 1rem;
+            font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+            color: whitesmoke;
+            font-weight: lighter;
+            margin: 0;
+            padding-top: 5px;
+            opacity: 0.8;
+        }
+
+        #indicatorButtonsContainer {
+            position: absolute;
+            top: 600px;
+            left: 10px;
+            width: 200px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .indicator-button {
+            background-color: rgb(52, 52, 52);
+            color: white;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            font-family: "Circular Std", sans-serif;
+        }
+
+        .indicator-button:hover {
+            background-color: rgb(70, 70, 70);
+        }
+
+        .indicator-button.selected {
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+            font-weight: bold;
+        }
+
+        #chartTitle {
+            position: absolute;
+            text-align: right;
+            top: 10px;
+            right: 10px;
+            z-index: 50;
+            color: white;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-weight: 300;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="indicatorButtonsContainer"></div>
+    <div id="titleBlock">
+        <div id="mainTitle">
+            <h1>Around the UK<span style="color: #66c2a5;">.</span></h1>
+            <!-- <h2>Interactive Data Story</h2> -->
+            <p>
+                <span style="font-weight: normal">The map is interactive. </span>
+                Click, drag and scroll to explore the data. Select variables on the right and find articles on the left.
+            </p>
+        </div>
+    </div>
+
+    <div id="map"></div>
+    <h4 id="chartTitle"> GVA per hour</h4>
+    <div id="chart"></div>
+    <!-- <select id="indicatorDropdown"> -->
+    <!-- <option value="gva_per_hour">GVA Per Hour</option>
+        <option value="gross_median_weekly_pay">Gross Median Weekly Pay</option>
+        <option value="average_travel_time">Average Travel Time</option>
+        <option value="gcse_achievements">GCSE Achievements</option>
+        <option value="mortality_rate">Mortality Rate</option>
+        <option value="life_satisfaction">Life Satisfaction</option>
+        <option value="net_additions">Net Additions</option> -->
+    <!-- </select> -->
+    <div id="legend">
+        <div id="legend-title">Legend</div>
+        <div id="legend-gradient"></div>
+        <div id="legend-labels">
+            <span id="legend-min"></span>
+            <span id="legend-max" style="float: right;"></span>
+        </div>
+    </div>
+
+    <script>
+        const series_to_keep = {
+            "Gross Value Added (GVA) per hour worked (£)": {
+                "Theme": "Productivity",
+                "name": "GVA per hour worked (£)",
+                "format": "$,.2f",
+                "scheme": "interpolateWarm",
+                "id": "gva_per_hour",
+                "geo_version": "2022"
+            },
+            "Gross median weekly pay (£)": {
+                "Theme": "Income",
+                "name": "Gross median weekly pay (£)",
+                "format": "$,.2f",
+                "id": "gross_median_weekly_pay",
+                "geo_version": "2023"
+            },
+            "Employment rate, aged 16 to 64 years (%)": {
+                "Theme": "Employment",
+                "name": "Employment rate, ages 16-64 (%)",
+                "format": ".2%",
+                "id": "employment_rate",
+                "geo_version": "2022"
+            },
+            "Average travel time in minutes to nearest large employment centre": {
+                "Theme": "Transport",
+                "name": "Average Public Transport Travel Time to Nearest Large Employment Centre (minutes)",
+                "format": ".2f",
+                "id": "average_travel_time",
+                "geo_version": "2011"
+            },
+            "Percentage of young people achieving GCSEs": {
+                "Theme": "Education",
+                "name": "Percentage of Young People Achieving GCSEs in English and Maths by Age 19 (%)",
+                "format": ".2%",
+                "id": "gcse_achievements",
+                "geo_version": "2022"
+            },
+            "Age-standardised mortality rate for those aged under 75": {
+                "Theme": "Health",
+                "name": "Under 75 Age-standardised mortality rates",
+                "format": ".2f",
+                "id": "mortality_rate",
+                "geo_version": "2023"
+            },
+            "Mean satisfaction with your life nowadays": {
+                "Theme": "Wellbeing",
+                "name": "Mean Reported Life Satisfaction (0-10)",
+                "format": ".2f",
+                "id": "life_satisfaction",
+                "geo_version": "2022"
+            },
+            "Net additions per 1,000 stock": {
+                "Theme": "Housing",
+                "name": "Net additions per 1,000 stock",
+                "format": ".2f",
+                "id": "net_additions",
+                "geo_version": "2022"
+            },
+            "Percentage of 4G coverage by at least one mobile network operator (%)": {
+                "Theme": "Digital",
+                "name": "4G Coverage (%)",
+                "format": ".2%",
+                "id": "4g_coverage",
+                "geo_version": "2022"
+            },
+            "Percentage of schools rated good or outstanding by Ofsted (%)": {
+                "Theme": "Education",
+                "name": "'Good' or 'Outstanding' Schools (%)",
+                "format": ".2%",
+                "id": "offsted_schools",
+                "geo_version": "2023"
+            },
+            "Percentage of adults that currently smoke cigarettes (%)": {
+                "Theme": "Health",
+                "name": "Adult Smoking Rate (%)",
+                "format": ".2%",
+                "id": "smoking_rate",
+                "geo_version": "2022"
+            }
+        };
+
+        const dropdown = document.getElementById('indicatorDropdown');
+
+        // // Loop through the series_to_keep object and create <option> elements
+        // for (const [key, value] of Object.entries(series_to_keep)) {
+        //     const option = document.createElement('option');
+        //     option.value = value.id;  // Set the value to the ID of the series
+        //     option.text = value.name;  // Set the display text to the name of the series
+        //     dropdown.add(option);
+        // }
+
+        const buttonContainer = document.getElementById('indicatorButtonsContainer');
+
+        // Create buttons for each indicator
+        for (const [key, value] of Object.entries(series_to_keep)) {
+            const button = document.createElement('button');
+            button.classList.add('indicator-button');
+            button.innerText = value.name;
+            button.dataset.indicatorId = value.id;  // Store the indicator ID in the button's dataset
+
+            // Handle button click
+            button.addEventListener('click', (event) => {
+                const indicatorId = event.target.dataset.indicatorId;
+
+                // Switch the indicator
+                choroplethMap.switchIndicator(indicatorId);
+
+                // Remove the 'selected' class from all buttons
+                const buttons = document.querySelectorAll('.indicator-button');
+                buttons.forEach(btn => btn.classList.remove('selected'));
+
+                // Add the 'selected' class to the clicked button
+                event.target.classList.add('selected');
+            });
+
+            buttonContainer.appendChild(button);
+        }
+
+        // Initially select the default indicator button
+        document.querySelector(`button[data-indicator-id="${choroplethMap.defaultIndicatorId}"]`).classList.add('selected');
+    </script>
+
+    <script>
+        class ChoroplethMap {
+            constructor(mapContainerId, jsonPath, defaultIndicatorId, accessToken, mapStyle) {
+                this.mapContainerId = mapContainerId;
+                this.jsonPath = jsonPath;
+                this.accessToken = accessToken;
+                this.mapStyle = mapStyle;
+                this.defaultIndicatorId = defaultIndicatorId;
+                this.map = null;
+                this.geoData = null;
+                this.indicators = null;
+                this.currentLayerId = null;  // Track the current layer
+                this.vegaChart = null; // Holder for the Vega-Lite chart instance
+
+                this.selectedRegion = [];  // Selected region for the chart
+                this.popups = [];  // Store the active popups
+
+                // Initialize the map
+                mapboxgl.accessToken = this.accessToken;
+                this.map = new mapboxgl.Map({
+                    container: this.mapContainerId,
+                    style: this.mapStyle,
+                    center: [-0.1276, 51.5074], // Center of the map (example: London)
+                    zoom: 6
+                });
+
+                // Ensure data is loaded after map is fully ready
+                this.map.on('load', () => {
+                    this.dataLoaded = this.loadData();  // Promise to ensure data is loaded
+                });
+            }
+
+            // Load the indicators.json file and prepare the map and chart
+            loadData() {
+                return new Promise((resolve, reject) => {
+                    fetch(this.jsonPath)
+                        .then(response => response.json())
+                        .then(tool_data => {
+                            this.indicators = tool_data.indicators;
+                            this.toolData = tool_data;
+                            this.switchIndicator(this.defaultIndicatorId); // Show default indicator
+                            this.map.on('click', this.onRegionClick.bind(this));  // Bind the click handler to the class instance
+                            resolve();  // Resolve when data is loaded and map is ready
+                        })
+                        .catch(error => reject(error));  // Handle any errors in loading
+                });
+            }
+
+            // Show the selected layer and load corresponding geo data
+            showLayer(indicatorId) {
+                const indicator = this.indicators[indicatorId];
+                const geoVersion = indicator.meta.geo_version;  // Get the geo_version for this indicator
+
+                // Load the geo data corresponding to the geo_version
+                const geoDataForVersion = this.toolData.geo[geoVersion];
+
+                // Remove the previous layer if it exists
+                if (this.currentLayerId) {
+                    if (this.map.getLayer(this.currentLayerId)) {
+                        this.map.removeLayer(this.currentLayerId);
+                    }
+                    if (this.map.getSource(this.currentLayerId)) {
+                        this.map.removeSource(this.currentLayerId);
+                    }
+                }
+
+                // Add a new layer for the selected indicator
+                this.addIndicatorLayer(indicatorId, geoDataForVersion);
+
+                // bake the color into the indicator data for vegalite
+                const colorScale = d3.scaleSequential(d3.interpolateWarm)
+                    .domain(d3.extent(indicator.data, d => d.value));
+                indicator.data.forEach(d => {
+                    d.color = colorScale(d.value);
+                });
+
+                // Update Vega-Lite chart with new data
+                this.updateVegaLiteChart(indicator.data);
+
+                // // update the Vega-Lite chart title
+                // this.vegaChart.title({
+                //     text: indicator.meta.name
+                // }).run();
+
+                // Update the title of the chart
+                document.getElementById('chartTitle').innerText = indicator.meta.name;
+
+                // Update the current layer ID
+                this.currentLayerId = `lad-layer-${indicatorId}`;
+
+                // Update the legend with the new color scale and indicator name
+                this.updateLegend(colorScale, indicator.meta.name, d3.extent(indicator.data, d => d.value));
+            }
+
+            // Add a specific indicator layer
+            addIndicatorLayer(indicatorId, geoData) {
+                const indicatorData = this.indicators[indicatorId].data;
+                const colorScale = d3.scaleSequential(d3.interpolateWarm)
+                    .domain(d3.extent(indicatorData, d => d.value));
+
+                // Enrich geojson features with the corresponding indicator value
+                geoData.features.forEach(feature => {
+                    const ladId = feature.properties.lad_id;
+                    const indicator = indicatorData.find(d => d.lad_id === ladId);
+                    feature.properties.value = indicator ? indicator.value : null;
+                });
+
+                // Add a new source for the geojson data
+                if (!this.map.getSource(`lad-source-${indicatorId}`)) {
+                    this.map.addSource(`lad-source-${indicatorId}`, {
+                        type: 'geojson',
+                        data: geoData
+                    });
+                }
+                // Find the first label layer to insert the choropleth layer below
+                let labelLayerId;
+                const layers = this.map.getStyle().layers;
+                for (let i = 0; i < layers.length; i++) {
+                    if (layers[i].type === 'symbol' && layers[i].layout['text-field']) {
+                        labelLayerId = layers[i].id;
+                        break;
+                    }
+                }
+
+                // Add a new layer for the selected indicator, placing it below the label layers
+                this.map.addLayer({
+                    id: `lad-layer-${indicatorId}`,
+                    type: 'fill',
+                    source: `lad-source-${indicatorId}`,
+                    paint: {
+                        'fill-color': [
+                            'case',
+                            ...geoData.features.flatMap(feature => {
+                                const value = feature.properties.value;
+                                const color = value !== undefined && value !== null ? colorScale(value) : 'rgba(0,0,0,0)';  // Use default color for undefined or null values
+                                return [['==', ['get', 'lad_id'], feature.properties.lad_id], color];
+                            }),
+                            'red'  // Transparent color for areas with no data
+                        ],
+                        'fill-opacity': [
+                            'case',
+                            ...geoData.features.flatMap(feature => {
+                                return [['==', ['get', 'lad_id'], feature.properties.lad_id], 0.7];
+                            }),
+                            0  // Hide areas with no data
+                        ]
+                    }
+                }, labelLayerId);  // Insert the layer before the first label layer
+            }
+
+            onRegionClick(e) {
+                // Get the features at the clicked point
+                const features = this.map.queryRenderedFeatures(e.point, {
+                    layers: [this.currentLayerId]  // Ensure you are querying the correct layer
+                });
+
+                // If no features were clicked, exit early
+                if (!features.length) {
+                    return;
+                }
+
+                const feature = features[0];  // Get the first feature
+                const regionName = feature.properties.lad_name;  // Get the region name
+                const regionValue = feature.properties.value;  // Get the value
+
+                // Zoom to the clicked region and center it
+                this.map.flyTo({
+                    center: e.lngLat,  // Fly to the clicked location
+                    zoom: 8  // Adjust the zoom level as needed
+                });
+
+                // Show an uninteractable popup with the region's name and value
+                const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+                    .setLngLat(e.lngLat)
+                    .setHTML(`<strong>${regionName}</strong><br>${regionValue}`)
+                    .addTo(this.map);
+
+                // Add the popup to the popups array
+                this.popups.push(popup);
+
+                // Ensure only the 3 most recent popups remain
+                if (this.popups.length > 3) {
+                    // Remove the oldest popup (remove it from the map and array)
+                    this.popups[0].remove();
+                    this.popups.shift();
+                }
+
+                // Add the region to the selectedRegion array, and remove the oldest one if there are more than 3
+                this.selectedRegion.push(feature.properties.lad_id);
+                if (this.selectedRegion.length > 3) {
+                    this.selectedRegion.shift();
+                }
+
+                console.log(`Selected regions: ${this.selectedRegion}`);
+
+                // Update the Vega-Lite chart by setting the selectedRegion param
+                this.vegaChart.signal('selectedRegion', [...this.selectedRegion]).run();
+                // refresh the chart
+            }
+
+            // Method to switch indicators dynamically by showing/hiding layers
+            switchIndicator(newIndicatorId) {
+                if (!this.indicators[newIndicatorId]) {
+                    console.error(`Indicator ID ${newIndicatorId} not found in the loaded data.`);
+                    return;
+                }
+                this.showLayer(newIndicatorId);  // Show the selected indicator layer
+            }
+
+            // Create a Vega-Lite chart with dynamic data
+            createVegaLiteChart(initialData) {
+                const spec = {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "height": "container",
+                    "width": "container",
+                    "bounds": "flush",
+                    "autosize": {
+                        "type": "fit",
+                        "contains": "padding"
+                    },
+                    "align": "right",
+
+                    "config": {
+                        "background": "rgba(44, 44, 44, 0)",
+                        "title": { "color": "white" },
+                        "font": "Circular Std",
+                        "axis": {
+                            "domain": false,
+                            "grid": false,
+                            "ticks": false,
+                            "labelColor": "#fff"
+                        },
+                        "view": { "stroke": null }
+                    },
+                    "title": {
+                        "text": "",
+                        "anchor": "end",
+                    },
+                    "params": [{ "name": "selectedRegion", "value": ["E09000001", "E08000023"] }],
+                    "layer": [
+                        {
+                            "transform": [{ "filter": "indexof(selectedRegion, datum.lad_id) != -1" }],
+                            "mark": {
+                                "type": "text",
+                                "align": "right",
+                                "dx": -10,
+                                "color": "white",
+                                "text": { "expr": "datum.lad_name" }
+                            }
+                        },
+                        {
+                            "mark": {
+                                "type": "bar",
+                                "stroke": {
+                                    "expr": "indexof(selectedRegion, datum.lad_id) != -1 ? 'white' : null"
+                                },
+                                "color": { "expr": "datum.color" }
+                            }
+                        }
+                    ],
+                    "encoding": {
+                        "x": {
+                            "field": "value",
+                            "title": "",
+                            "scale": { "reverse": true },
+                            "type": "quantitative"
+                        },
+                        "y": {
+                            "field": "lad_id",
+                            "axis": {
+                                "domain": false,
+                                "grid": false,
+                                "ticks": false,
+                                "labels": false,
+                                "title": null
+
+
+                            },
+                            "sort": { "field": "value", "op": "min" }
+                        }
+                    },
+                    "data": {
+                        "values": initialData
+                    }
+                };
+
+                // Embed the Vega-Lite chart in the #chart div
+                vegaEmbed('#chart', spec).then(result => {
+                    this.vegaChart = result.view;  // Save the chart instance for future updates
+                });
+            }
+
+            // Update the Vega-Lite chart with new data
+            updateVegaLiteChart(newData) {
+                if (this.vegaChart) {
+                    this.vegaChart.change('source_0', vega.changeset().remove(() => true).insert(newData)).run();
+                } else {
+                    this.createVegaLiteChart(newData);
+                }
+            }
+
+            updateLegend(colorScale, title, domain) {
+                const legend = document.getElementById('legend');
+                const legendTitle = document.getElementById('legend-title');
+                const legendGradient = document.getElementById('legend-gradient');
+                const legendMin = document.getElementById('legend-min');
+                const legendMax = document.getElementById('legend-max');
+
+                // Show the legend
+                legend.style.display = 'block';
+
+                // Set the title
+                legendTitle.innerText = title;
+
+                // Create the gradient based on the color scale
+                const colors = [];
+                for (let i = 0; i <= 100; i++) {
+                    colors.push(colorScale(i / 100 * domain[1]));
+                }
+                legendGradient.style.background = `linear-gradient(to right, ${colors.join(', ')})`;
+
+                // Set the min and max values
+                legendMin.innerText = d3.format(".2f")(domain[0]);
+                legendMax.innerText = d3.format(".2f")(domain[1]);
+            }
+        }
+
+        // Usage example:
+        const choroplethMap = new ChoroplethMap(
+            'map',                         // Container ID for the Mapbox map
+            'data/indicators.json',         // Path to indicators.json
+            'gva_per_hour',                 // Default indicator ID
+            'pk.eyJ1IjoiZm0tZHMiLCJhIjoiY2xvbXIwb3piMm93aTJscndvYnFncjh4NSJ9.ZYcFieW_kfpK-uB6PhVkLA', // Access token
+            'mapbox://styles/fm-ds/clomumkxq00be01pmfce62xuf' // Map style
+        );
+
+        // Add event listener to the dropdown
+        document.getElementById('indicatorDropdown').addEventListener('change', function (event) {
+            const selectedIndicator = event.target.value;  // Get the selected indicator from the dropdown
+            choroplethMap.switchIndicator(selectedIndicator);  // Call switchIndicator with the selected value
+        });
+
+        let inactivityTimer;
+        let currentIndicatorIndex = 0;
+        const indicators = Object.entries(series_to_keep);
+        const buttons = document.querySelectorAll('.indicator-button');
+
+        // Function to switch to the next indicator
+        function cycleIndicators() {
+            currentIndicatorIndex = (currentIndicatorIndex + 1) % indicators.length;
+            const nextIndicatorId = indicators[currentIndicatorIndex][1].id;
+
+            // Trigger the button click programmatically
+            const nextButton = document.querySelector(`button[data-indicator-id="${nextIndicatorId}"]`);
+            nextButton.click();
+        }
+
+        // Reset inactivity timer and cycle indicators if inactive for 10 seconds
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(cycleIndicators, 10000);  // 10 seconds of inactivity
+        }
+
+        // Add event listeners to reset the timer on user interaction
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('keydown', resetInactivityTimer);
+
+        // Start the inactivity timer when the page loads
+        resetInactivityTimer();
+
+    </script>
+</body>
+
+</html>
