@@ -561,6 +561,8 @@
 
             // Method to switch indicators dynamically by showing/hiding layers
             switchIndicator(newIndicatorId) {
+                // remove all the popups
+                this.popups.forEach(popup => popup.remove());
                 if (!this.indicators[newIndicatorId]) {
                     console.error(`Indicator ID ${newIndicatorId} not found in the loaded data.`);
                     return;
